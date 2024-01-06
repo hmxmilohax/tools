@@ -41,7 +41,7 @@ fn load_funcs(path: &Path) -> Function {
         let max_args = tokens[len - 1].parse::<usize>().unwrap();
         let min_args = tokens[len - 2].parse::<usize>().unwrap();
 
-        tree.insert(&tokens[0..len - 2], min_args, max_args)
+        tree.insert(&tokens[0..len - 2], min_args, max_args);
     }
 
     tree

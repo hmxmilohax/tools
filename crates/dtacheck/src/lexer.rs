@@ -62,10 +62,10 @@ pub struct Token {
     pub span: Range<usize>,
 }
 
-fn trim_delimiters(lex: &mut Lexer<TokenKind>) -> Option<String> {
-    let slice = lex.slice();
-    let len = slice.len();
-    slice[1..len - 1].parse().ok()
+fn trim_delimiters(lexer: &mut Lexer<TokenKind>) -> Option<String> {
+    let slice = lexer.slice();
+    let length = slice.len();
+    slice[1..length - 1].parse().ok()
 }
 
 pub fn lex(data: &str) -> Vec<Token> {
@@ -73,7 +73,7 @@ pub fn lex(data: &str) -> Vec<Token> {
         .spanned()
         .map(|(tok, span)| match tok {
             Ok(tok) => Token { kind: tok, span },
-            Err(_) => Token {
+            Err(()) => Token {
                 kind: TokenKind::Invalid,
                 span,
             },
@@ -84,13 +84,13 @@ pub fn lex(data: &str) -> Vec<Token> {
         tokens.push(Token {
             kind: TokenKind::Eof,
             span: 0..0,
-        })
+        });
     } else {
         let last = tokens.last().unwrap().span.end;
         tokens.push(Token {
             kind: TokenKind::Eof,
             span: last..last,
-        })
+        });
     }
 
     tokens
