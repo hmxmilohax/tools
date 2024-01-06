@@ -7,3 +7,8 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4.4.2", features = ["derive"] }
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true
