@@ -1,0 +1,12 @@
+[workspace]
+resolver = "2"
+
+members = [
+	"crates/dtacheck",
+	"crates/swap_art_bytes",
+]
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true
