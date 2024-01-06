@@ -1,6 +1,7 @@
-use clap::Parser;
 use std::error::Error;
 use std::path::Path;
+
+use clap::Parser;
 
 #[derive(clap::Parser)]
 struct Args {
