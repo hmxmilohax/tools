@@ -13,7 +13,11 @@ pub trait Lint {
     fn to_codespan(&self, id: usize) -> Diagnostic<usize>;
 }
 
-pub fn lint_file(ast: &[Node], tokens: &[Token], funcs: &Function) -> Vec<Box<dyn Lint>> {
+pub fn lint_file(
+    ast: &[Node],
+    tokens: &[Token],
+    funcs: &Function,
+) -> Vec<Box<dyn Lint>> {
     let mut lints = Vec::new();
     lint_node(&mut lints, ast, funcs);
     lint_preprocs(&mut lints, tokens);
@@ -23,13 +27,14 @@ pub fn lint_file(ast: &[Node], tokens: &[Token], funcs: &Function) -> Vec<Box<dy
 fn lint_node(lints: &mut Vec<Box<dyn Lint>>, ast: &[Node], funcs: &Function) {
     for node in ast {
         match &node.kind {
-            NodeKind::Array(array) | NodeKind::Prop(array) | NodeKind::Define(_, array) => {
-                lint_node(lints, array, funcs)
-            }
+            NodeKind::Array(array)
+            | NodeKind::Prop(array)
+            | NodeKind::Define(_, array) => lint_node(lints, array, funcs),
             NodeKind::Stmt(array) => {
                 lint_node(lints, array, funcs);
 
-                let has_preprocessor_directive = array.iter().any(|tok| tok.is_preproc());
+                let has_preprocessor_directive =
+                    array.iter().any(|tok| tok.is_preproc());
 
                 if !has_preprocessor_directive {
                     lint_fn_args(lints, array, node.span.clone(), funcs);
@@ -51,15 +56,17 @@ impl Lint for FunctionArgLint {
     fn to_codespan(&self, id: usize) -> Diagnostic<usize> {
         match self {
             Self::TooManyArgs(name, range) => Diagnostic::error()
-                .with_message(format!("calling `{name}` with too many arguments"))
-                .with_labels(vec![
-                    Label::primary(id, range.clone()).with_message("too many arguments")
-                ]),
+                .with_message(format!(
+                    "calling `{name}` with too many arguments"
+                ))
+                .with_labels(vec![Label::primary(id, range.clone())
+                    .with_message("too many arguments")]),
             Self::NotEnoughArgs(name, range) => Diagnostic::error()
-                .with_message(format!("calling `{name}` with too few arguments"))
-                .with_labels(vec![
-                    Label::primary(id, range.clone()).with_message("not enough arguments")
-                ]),
+                .with_message(format!(
+                    "calling `{name}` with too few arguments"
+                ))
+                .with_labels(vec![Label::primary(id, range.clone())
+                    .with_message("not enough arguments")]),
         }
     }
 }
@@ -183,7 +190,9 @@ pub fn lint_preprocs(lints: &mut Vec<Box<dyn Lint>>, tokens: &[Token]) {
             TokenKind::Else => {
                 if let Some(entry) = directive_stack.pop() {
                     if entry.1 {
-                        lints.push(Box::new(PreProcLint::Extra(token.span.clone())))
+                        lints.push(Box::new(PreProcLint::Extra(
+                            token.span.clone(),
+                        )))
                     }
                     directive_stack.push((token.span.clone(), true));
                 } else {
@@ -199,10 +208,7 @@ pub fn lint_preprocs(lints: &mut Vec<Box<dyn Lint>>, tokens: &[Token]) {
         }
     }
 
-    lints.append(
-        &mut directive_stack
-            .into_iter()
-            .map(|x| Box::new(PreProcLint::Unmatched(x.0)) as Box<dyn Lint>)
-            .collect::<Vec<_>>(),
-    );
+    for lint in directive_stack {
+        lints.push(Box::new(PreProcLint::Unmatched(lint.0)))
+    }
 }

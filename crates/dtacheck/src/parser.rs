@@ -29,14 +29,15 @@ impl Lint for ParseLint {
             Self::UnmatchedBrace(opening, closing) => Diagnostic::error()
                 .with_message("unmatched delimiter")
                 .with_labels(vec![
-                    Label::primary(id, closing.clone()).with_message("unexpected token"),
-                    Label::primary(id, opening.clone()).with_message("unmatched delimiter"),
+                    Label::primary(id, closing.clone())
+                        .with_message("unexpected token"),
+                    Label::primary(id, opening.clone())
+                        .with_message("unmatched delimiter"),
                 ]),
             Self::GenericError(span) => Diagnostic::error()
                 .with_message("unexpected token")
-                .with_labels(vec![
-                    Label::primary(id, span.clone()).with_message("unexpected token")
-                ]),
+                .with_labels(vec![Label::primary(id, span.clone())
+                    .with_message("unexpected token")]),
         }
     }
 }
@@ -74,7 +75,10 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn eat_open_brace(&mut self, f: fn(&TokenKind) -> bool) -> ParseResult<Token> {
+    fn eat_open_brace(
+        &mut self,
+        f: fn(&TokenKind) -> bool,
+    ) -> ParseResult<Token> {
         let token = self.lookahead(0);
 
         if f(&token.kind) {
@@ -150,11 +154,14 @@ impl<'a> Parser<'a> {
             let upper_span = self.previous().span;
             Ok(Node::new_stmt(array, lower_span.start..upper_span.end))
         } else if self.eat_if(TokenKind::is_define) {
-            let span = self.previous().span;
+            let lower_span = self.previous().span;
             let sym = self.eat(TokenKind::is_sym)?;
             self.eat_open_brace(TokenKind::is_l_paren)?;
             let array = self.parse_list(TokenKind::is_r_paren)?;
-            Ok(Node::new_define(span, sym, array))
+            let upper_span = self.previous().span;
+            let lower = lower_span.start;
+            let upper = upper_span.end;
+            Ok(Node::new_define(lower..upper, sym, array))
         } else if self.eat_if(TokenKind::is_include) {
             let span = self.previous().span;
             let sym = self.eat(TokenKind::is_sym)?;
@@ -178,7 +185,37 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_list(&mut self, stop: fn(&TokenKind) -> bool) -> ParseResult<Vec<Node>> {
+    fn recover_mismatched_braces(&mut self) -> bool {
+        if !self.brace_stack.is_empty() {
+            let token = self.lookahead(0);
+            let unmatched = self.brace_stack.last().unwrap().span.clone();
+            let current = token.span.clone();
+            let diag = ParseLint::UnmatchedBrace(unmatched, current);
+
+            if token.kind.is_r_bracket()
+                || token.kind.is_r_paren()
+                || token.kind.is_r_brace()
+            {
+                self.diagnostics.push(diag);
+                self.bump(1);
+                self.brace_stack.pop().unwrap();
+                return true;
+            }
+
+            if token.kind.is_eof() {
+                self.diagnostics.push(diag);
+                self.brace_stack.pop().unwrap();
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    fn parse_list(
+        &mut self,
+        stop: fn(&TokenKind) -> bool,
+    ) -> ParseResult<Vec<Node>> {
         let mut nodes = Vec::new();
         loop {
             if self.eat_if(stop) {
@@ -190,29 +227,9 @@ impl<'a> Parser<'a> {
             match self.parse_node() {
                 Ok(x) => nodes.push(x),
                 Err(e) => {
-                    if !self.brace_stack.is_empty() {
-                        let token = self.lookahead(0);
-                        let unmatched = self.brace_stack.last().unwrap().span.clone();
-                        let current = token.span.clone();
-                        let diag = ParseLint::UnmatchedBrace(unmatched, current);
-
-                        if token.kind.is_r_bracket()
-                            || token.kind.is_r_paren()
-                            || token.kind.is_r_brace()
-                        {
-                            self.diagnostics.push(diag);
-                            self.bump(1);
-                            self.brace_stack.pop().unwrap();
-                            break;
-                        }
-
-                        if token.kind.is_eof() {
-                            self.diagnostics.push(diag);
-                            self.brace_stack.pop().unwrap();
-                            break;
-                        }
+                    if self.recover_mismatched_braces() {
+                        break;
                     }
-
                     return Err(e);
                 }
             }
@@ -266,17 +283,6 @@ pub struct Node {
     pub span: Range<usize>,
 }
 
-#[allow(clippy::reversed_empty_ranges)]
-fn combine_node_spans(list: &[Node]) -> Range<usize> {
-    list.iter()
-        .map(|x| &x.span)
-        .fold(usize::MAX..0, |current, next| {
-            let start = current.start.min(next.start);
-            let end = current.end.max(next.end);
-            start..end
-        })
-}
-
 impl Node {
     fn new_array(list: Vec<Node>, span: Range<usize>) -> Node {
         Node {
@@ -300,8 +306,6 @@ impl Node {
     }
 
     fn new_define(span: Range<usize>, sym: Token, array: Vec<Node>) -> Node {
-        let vec_span = combine_node_spans(&array);
-        let span = span.start..vec_span.end.min(sym.span.end);
         Node {
             kind: NodeKind::Define(sym.kind.unwrap_sym(), array),
             span,
