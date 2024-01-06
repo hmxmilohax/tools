@@ -209,7 +209,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        return false;
+        false
     }
 
     fn parse_list(
@@ -277,7 +277,6 @@ pub enum NodeKind {
 }
 
 #[derive(Debug)]
-#[allow(unused)]
 pub struct Node {
     pub kind: NodeKind,
     pub span: Range<usize>,

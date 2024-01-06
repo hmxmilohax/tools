@@ -34,7 +34,7 @@ fn lint_node(lints: &mut Vec<Box<dyn Lint>>, ast: &[Node], funcs: &Function) {
                 lint_node(lints, array, funcs);
 
                 let has_preprocessor_directive =
-                    array.iter().any(|tok| tok.is_preproc());
+                    array.iter().any(Node::is_preproc);
 
                 if !has_preprocessor_directive {
                     lint_fn_args(lints, array, node.span.clone(), funcs);
@@ -138,9 +138,9 @@ fn lint_fn_args(
     let (func, depth) = funcs.lookup(stmt);
     let name = generate_function_name(&stmt[..depth]);
     if stmt.len() > func.max_args + depth {
-        lints.push(Box::new(FunctionArgLint::TooManyArgs(name, span)))
+        lints.push(Box::new(FunctionArgLint::TooManyArgs(name, span)));
     } else if stmt.len() < func.min_args + depth {
-        lints.push(Box::new(FunctionArgLint::NotEnoughArgs(name, span)))
+        lints.push(Box::new(FunctionArgLint::NotEnoughArgs(name, span)));
     }
 }
 
@@ -181,10 +181,7 @@ pub fn lint_preprocs(lints: &mut Vec<Box<dyn Lint>>, tokens: &[Token]) {
     let mut directive_stack: Vec<(Range<usize>, bool)> = Vec::new();
     for token in tokens {
         match token.kind {
-            TokenKind::IfNDef => {
-                directive_stack.push((token.span.clone(), false));
-            }
-            TokenKind::IfDef => {
+            TokenKind::IfNDef | TokenKind::IfDef => {
                 directive_stack.push((token.span.clone(), false));
             }
             TokenKind::Else => {
@@ -192,16 +189,16 @@ pub fn lint_preprocs(lints: &mut Vec<Box<dyn Lint>>, tokens: &[Token]) {
                     if entry.1 {
                         lints.push(Box::new(PreProcLint::Extra(
                             token.span.clone(),
-                        )))
+                        )));
                     }
                     directive_stack.push((token.span.clone(), true));
                 } else {
-                    lints.push(Box::new(PreProcLint::Extra(token.span.clone())))
+                    lints.push(Box::new(PreProcLint::Extra(token.span.clone())));
                 }
             }
             TokenKind::EndIf => {
                 if directive_stack.pop().is_none() {
-                    lints.push(Box::new(PreProcLint::Extra(token.span.clone())))
+                    lints.push(Box::new(PreProcLint::Extra(token.span.clone())));
                 }
             }
             _ => (),
@@ -209,6 +206,6 @@ pub fn lint_preprocs(lints: &mut Vec<Box<dyn Lint>>, tokens: &[Token]) {
     }
 
     for lint in directive_stack {
-        lints.push(Box::new(PreProcLint::Unmatched(lint.0)))
+        lints.push(Box::new(PreProcLint::Unmatched(lint.0)));
     }
 }
