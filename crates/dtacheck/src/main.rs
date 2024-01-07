@@ -8,14 +8,11 @@ use codespan_reporting::term;
 use codespan_reporting::term::termcolor::ColorChoice;
 use codespan_reporting::term::termcolor::StandardStream;
 use codespan_reporting::term::Chars;
-
-use crate::linter::lint_file;
-use crate::linter::Function;
-use crate::linter::Lint;
-
-mod lexer;
-mod linter;
-mod parser;
+use dtacheck::lexer;
+use dtacheck::linter::lint_file;
+use dtacheck::linter::Function;
+use dtacheck::linter::Lint;
+use dtacheck::parser;
 
 #[derive(ClapParser)]
 struct Args {

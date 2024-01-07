@@ -159,7 +159,7 @@ fn generate_function_name(stmt: &[Node]) -> String {
 }
 
 // preprocesor directives
-pub enum PreProcLint {
+enum PreProcLint {
     Unmatched(Range<usize>),
     Extra(Range<usize>),
 }
@@ -177,7 +177,7 @@ impl Lint for PreProcLint {
     }
 }
 
-pub fn lint_preprocs(lints: &mut Vec<Box<dyn Lint>>, tokens: &[Token]) {
+fn lint_preprocs(lints: &mut Vec<Box<dyn Lint>>, tokens: &[Token]) {
     let mut directive_stack: Vec<(Range<usize>, bool)> = Vec::new();
     for token in tokens {
         match token.kind {
@@ -193,12 +193,14 @@ pub fn lint_preprocs(lints: &mut Vec<Box<dyn Lint>>, tokens: &[Token]) {
                     }
                     directive_stack.push((token.span.clone(), true));
                 } else {
-                    lints.push(Box::new(PreProcLint::Extra(token.span.clone())));
+                    lints
+                        .push(Box::new(PreProcLint::Extra(token.span.clone())));
                 }
             }
             TokenKind::EndIf => {
                 if directive_stack.pop().is_none() {
-                    lints.push(Box::new(PreProcLint::Extra(token.span.clone())));
+                    lints
+                        .push(Box::new(PreProcLint::Extra(token.span.clone())));
                 }
             }
             _ => (),

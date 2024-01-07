@@ -1,6 +1,6 @@
 [licenses]
 unlicensed = "deny"
-copyleft = "warn"
+copyleft = "deny"
 allow-osi-fsf-free = "osi"
 default = "deny"
 
