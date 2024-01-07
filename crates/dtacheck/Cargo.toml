@@ -2,6 +2,7 @@
 name = "dtacheck"
 version = "0.1.0"
 edition = "2021"
+publish = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -10,4 +11,3 @@ clap = { version = "4.4.12", features = ["derive"] }
 codespan-reporting = "0.11.1"
 derive_more = "0.99.17"
 logos = "0.13.0"
-
