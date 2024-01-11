@@ -2,7 +2,7 @@
 resolver = "2"
 
 members = [
-	"crates/dtacheck",
+	"crates/dtacheck", "crates/milo",
 	"crates/swap_art_bytes",
 ]
 
