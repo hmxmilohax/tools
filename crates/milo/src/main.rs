@@ -15,7 +15,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
     let mut infile = File::open(args.input)?;
     let mut freqindasheets = ark::freq::FreqArchive::new();
-    freqindasheets.load(&mut infile)?;
+    freqindasheets.load(&mut infile, 0)?;
     println!("{}", freqindasheets);
     Ok(())
 }

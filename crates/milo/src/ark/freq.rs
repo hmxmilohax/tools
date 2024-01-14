@@ -17,7 +17,7 @@ struct FreqFileEntry { // 24 bytes
 }
 
 impl Load for FreqFileEntry {
-    fn load(&mut self, f: &mut File) -> Result<(), Box<dyn Error>> {
+    fn load(&mut self, f: &mut File, _: u32) -> Result<(), Box<dyn Error>> {
         self.unknown = fio::read_u32(f, true)?;
         self.file_name_offset = fio::read_u32(f, true)?;
         self.folder_name_index = fio::read_u16(f, true)?;
@@ -76,7 +76,7 @@ impl FreqArchive {
 }
 
 impl Load for FreqArchive {
-    fn load(&mut self, f: &mut File) -> Result<(), Box<dyn Error>> {
+    fn load(&mut self, f: &mut File, _: u32) -> Result<(), Box<dyn Error>> {
         self.magic = fio::read_u32(f, true)?;
         self.version = fio::read_u32(f, true)?;
         self.file_entry_offset = fio::read_u32(f, true)?;

@@ -19,15 +19,15 @@ pub fn load_ark_file(f: &mut File) -> Result<Option<ArkTypes>, Box<dyn Error>> {
     match vercheck {
         0x004B5241 => {
             let mut freq = freq::FreqArchive::new();
-            freq.load(f)?;
+            freq.load(f, 0)?;
             ark.freq = freq;
         }
         0..=2 => {
             let mut amp = amp::AmpArchive::new();
-            amp.load(f)?;
+            amp.load(f, 0)?;
             ark.amp = ManuallyDrop::new(amp);
         }
-        _ => println!("unrecognized ark version. if gh1 or later, use the header and not the part.")
+        _ => println!("unrecognized ark version. if gh1 or later, use the .hdr and not the .ark")
     }
     Ok(Some(ark))
 }

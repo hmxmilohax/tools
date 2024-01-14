@@ -25,10 +25,11 @@ impl AmpFileEntry {
 }
 
 impl Load for AmpFileEntry {
-    fn load(&mut self, f: &mut std::fs::File) -> Result<(), Box<dyn std::error::Error>> {
-        self.offset = fio::read_u32(f, true)?;
+    fn load(&mut self, f: &mut std::fs::File, ver: u32) -> Result<(), Box<dyn std::error::Error>> {
+        if ver != 1 {self.offset = fio::read_u32(f, true)?;}
         self.file_name_idx = fio::read_u32(f, true)?;
         self.folder_name_idx = fio::read_u32(f, true)?;
+        if ver == 1 {self.offset = fio::read_u32(f, true)?;}
         self.size = fio::read_u32(f, true)?;
         self.inflated_size = fio::read_u32(f, true)?;
         Ok(())
@@ -71,12 +72,12 @@ impl AmpArchive {
 }
 
 impl Load for AmpArchive {
-    fn load(&mut self, f: &mut std::fs::File) -> Result<(), Box<dyn std::error::Error>> {
+    fn load(&mut self, f: &mut std::fs::File, _: u32) -> Result<(), Box<dyn std::error::Error>> {
         self.version = fio::read_u32(f, true)?;
         self.entry_ct = fio::read_u32(f, true)?;
         for _ in 0..self.entry_ct {
             let mut ent = AmpFileEntry::new();
-            ent.load(f);
+            ent.load(f, self.version)?;
             self.entries.push(ent);
         }
         self.str_table_size = fio::read_u32(f, true)?;
@@ -129,6 +130,7 @@ impl Clone for AmpArchive {
         }
         Self {
             version: self.version,
+            entry_ct: self.entry_ct,
             entries: new_entries,
             str_table_size: self.str_table_size,
             string_table: new_strtbl,
