@@ -1,4 +1,4 @@
-use crate::traits::{Load, Port};
+use crate::traits::Load;
 use crate::fio;
 use std::fmt::Display;
 use std::fs::File;
