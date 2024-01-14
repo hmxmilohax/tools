@@ -38,6 +38,7 @@ fn lint_node(lints: &mut Vec<Box<dyn Lint>>, ast: &[Node], funcs: &Function) {
 
                 if !has_preprocessor_directive {
                     lint_fn_args(lints, array, node.span.clone(), funcs);
+                    lint_switch_fallthrough(lints, array, node.span.clone());
                 }
             }
             _ => (),
@@ -209,5 +210,48 @@ fn lint_preprocs(lints: &mut Vec<Box<dyn Lint>>, tokens: &[Token]) {
 
     for lint in directive_stack {
         lints.push(Box::new(PreProcLint::Unmatched(lint.0)));
+    }
+}
+
+// switch fallthough
+
+struct SwitchFallthroughLint(Range<usize>, Range<usize>);
+
+impl Lint for SwitchFallthroughLint {
+    fn to_codespan(&self, id: usize) -> Diagnostic<usize> {
+        Diagnostic::warning()
+            .with_message("missing fallthrough for switch")
+            .with_labels(vec![
+                Label::primary(id, self.0.clone()),
+                Label::secondary(id, self.1.clone())
+                    .with_message("consider adding a fallthrough node here"),
+            ])
+    }
+}
+
+fn lint_switch_fallthrough(
+    lints: &mut Vec<Box<dyn Lint>>,
+    stmt: &[Node],
+    span: Range<usize>,
+) {
+    if stmt.is_empty() {
+        return;
+    }
+
+    let NodeKind::Symbol(ref sym) = stmt[0].kind else {
+        return;
+    };
+
+    if sym != "switch" {
+        return;
+    }
+
+    let Some(last_node) = stmt.last() else {
+        return;
+    };
+
+    if last_node.kind.is_array() {
+        let pos = span.end - 1;
+        lints.push(Box::new(SwitchFallthroughLint(span, pos..pos)))
     }
 }
