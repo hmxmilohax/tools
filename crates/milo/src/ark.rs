@@ -7,14 +7,13 @@ pub mod amp;
 pub mod freq;
 
 pub enum ArkTypes {
-    Empty,
     FreqArk(freq::FreqArchive),
     AmpArk(amp::AmpArchive),
 }
 
 pub fn load_ark_file(f: &mut File) -> Result<ArkTypes, Box<dyn Error>> {
     let vercheck = read_u32(f, true)?;
-    let mut ark: ArkTypes = ArkTypes::Empty;
+    let ark: ArkTypes;
     match vercheck {
         0x004B5241 => {
             let mut freq = freq::FreqArchive::new();
@@ -26,7 +25,10 @@ pub fn load_ark_file(f: &mut File) -> Result<ArkTypes, Box<dyn Error>> {
             amp.load(f, 0)?;
             ark = ArkTypes::AmpArk(amp);
         }
-        _ => println!("unrecognized ark version. if gh1 or later, use the .hdr and not the .ark")
+        _ => {
+            println!("unrecognized ark version. if gh1 or later, use the .hdr and not the .ark");
+            return Err::<_, Box<dyn Error>>("unkver".into());
+        }
     }
     Ok(ark)
 }

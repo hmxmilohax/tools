@@ -1,4 +1,5 @@
 use std::fmt::{Formatter, Display};
+use std::error::Error;
 
 use crate::traits::Load;
 use crate::fio;
@@ -72,7 +73,7 @@ impl AmpArchive {
 }
 
 impl Load for AmpArchive {
-    fn load(&mut self, f: &mut std::fs::File, _: u32) -> Result<(), Box<dyn std::error::Error>> {
+    fn load(&mut self, f: &mut std::fs::File, _: u32) -> Result<(), Box<dyn Error>> {
         self.version = fio::read_u32(f, true)?;
         self.entry_ct = fio::read_u32(f, true)?;
         for _ in 0..self.entry_ct {
@@ -111,31 +112,5 @@ impl Display for AmpArchive {
             fmt.write_fmt(format_args!("Index {i}: {}", self.string_idx_entries[i]))?;
         }
         Ok(())
-    }
-}
-
-impl Clone for AmpArchive {
-    fn clone(&self) -> Self {
-        let mut new_entries: Vec<AmpFileEntry> = vec![];
-        for entry in &self.entries {
-            new_entries.push(*entry);
-        }
-        let mut new_strtbl: Vec<String> = vec![];
-        for string in &self.string_table {
-            new_strtbl.push(string.clone());
-        }
-        let mut new_stridxs: Vec<u32> = vec![];
-        for idx in &self.string_idx_entries {
-            new_stridxs.push(*idx);
-        }
-        Self {
-            version: self.version,
-            entry_ct: self.entry_ct,
-            entries: new_entries,
-            str_table_size: self.str_table_size,
-            string_table: new_strtbl,
-            string_idx_count: self.string_idx_count,
-            string_idx_entries: new_stridxs
-        }
     }
 }
