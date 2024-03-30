@@ -3,6 +3,8 @@ use std::path::Path;
 
 use clap::Parser;
 
+use swap_art_bytes::swap_art_bytes;
+
 #[derive(clap::Parser)]
 struct Args {
     input_file: Box<Path>,
@@ -11,18 +13,8 @@ struct Args {
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
-
     let mut buf = std::fs::read(args.input_file)?;
-
-    for i in (32..buf.len()).step_by(2) {
-        let byte1 = buf[i];
-        let byte2 = buf[i + 1];
-
-        buf[i] = byte2;
-        buf[i + 1] = byte1;
-    }
-
+    swap_art_bytes(&mut buf);
     std::fs::write(args.output_file, buf)?;
-
     Ok(())
 }
