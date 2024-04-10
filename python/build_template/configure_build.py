@@ -4,7 +4,6 @@ from pathlib import Path
 import sys
 import argparse
 import os
-import dx_build
 
 game_name = "Rock Band 3 Deluxe"
 
