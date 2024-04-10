@@ -16,7 +16,6 @@ ninja = ninja_syntax.Writer(open("build.ninja", "w+"))
 #rb2, tbrb, gdrb - "-v 5"
 #rb3, dc, blitz - "-v 6"
 ninja.variable("ark_version", "-v 6")
-ark_version = "-v 6"
 
 #require user provided vanilla ark extract in "vanilla/platform" folder
 vanilla_files = False
@@ -83,7 +82,7 @@ if args.platform == "ps2":
         miloVersion = " "
         #remove these two if rock band 1
         ark_encrypt = " "
-        dtb_encrypt = dtb_encrypt.upper()
+        dtb_encrypt = "-E"
 
 ninja.variable("dtb_encrypt", dtb_encrypt)
 ninja.variable("ark_encrypt", ark_encrypt)
