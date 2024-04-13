@@ -17,7 +17,11 @@ ninja = ninja_syntax.Writer(open("build.ninja", "w+"))
 ninja.variable("ark_version", "-v 6")
 
 #require user provided vanilla ark extract in "vanilla/platform" folder
+#tbh you should probably just use patchcreator
 vanilla_files = False
+
+#copy back dx files and vanilla hdr to platform folder before building
+rebuild_files = False
 
 #set True for rb1 and newer 
 new_gen = True
@@ -59,10 +63,8 @@ custom_texture_paths = [
 #patchcreator options
 patchcreator = False
 new_ark_part = "10"
-dol_name = "main.dol"
-elf_name = " "
-bin_name = " "
-xex_name = " "
+#deliver vanilla arks to out folder
+copy_vanilla_arks_to_out = False
 
 parser = argparse.ArgumentParser(prog="configure")
 parser.add_argument("platform")
@@ -140,6 +142,10 @@ match args.platform:
     case "ps2":
         out_dir = Path("out", args.platform, "GEN")
 
+#patchcreator forces into a gen folder itself it sucks
+if patchcreator == True and args.platform != "wii":
+    out_dir = out_dir.parent
+
 #building an ark
 if args.platform in ["ps3", "xbox", "ps2"] and patchcreator == False:
     ninja.rule(
@@ -154,19 +160,17 @@ if args.platform == "wii" or patchcreator == True:
     #append platform if this is new style ark
     if new_gen == True:
         hdr_name = hdr_name + "_" + args.platform
+    #this is fucking hilarious
+    exec_path = "README.md"
     match args.platform:
         case "wii":
             hdr_path = "platform/" + args.platform + "/files/gen/" + hdr_name + ".hdr"
-            exec_path = "platform/" + args.platform + "/sys/" + dol_name
         case "ps2":
             hdr_path = "platform/" + args.platform + "/GEN/" + hdr_name.upper() + ".HDR"
-            exec_path = "platform/" + args.platform + "/" + elf_name
         case "ps3":
             hdr_path = "platform/" + args.platform + "/USRDIR/gen/" + hdr_name + ".hdr"
-            exec_path = "platform/" + args.platform + "/USRDIR/" + bin_name
         case "xbox":
             hdr_path = "platform/" + args.platform + "/gen/" + hdr_name + ".hdr"
-            exec_path = "platform/" + args.platform + "/" + xex_name
     ninja.rule(
         "ark",
         f"$arkhelper patchcreator -a {ark_dir} -o {out_dir} {hdr_path} {exec_path} --logLevel error",
@@ -184,6 +188,23 @@ ninja.rule("dtab_encrypt", f"$dtab $dtb_encrypt $in $out", description="DTAB ENC
 ninja.build("_always", "phony")
 
 build_files = []
+
+# copy whatever arbitrary files you need to output
+if rebuild_files == True:
+    for f in filter(lambda x: x.is_file(), Path("dependencies", "rebuild_files", args.platform).rglob("*")):
+        index = f.parts.index(args.platform)
+        out_path = Path("out", args.platform).joinpath(*f.parts[index + 1 :])
+        ninja.build(str(out_path), "copy", str(f))
+        build_files.append(str(out_path))
+
+if copy_vanilla_arks_to_out == True:
+    #copies each ark part from the platform folder to output
+    #we are about to overwrite the hdr anyway so it doesnt matter if we copy it now
+    for f in filter(lambda x: x.is_file(), Path("platform", args.platform, "gen").rglob("*")):
+        index = f.parts.index(args.platform)
+        out_path = Path("out", args.platform).joinpath(*f.parts[index + 1 :])
+        ninja.build(str(out_path), "copy", str(f))
+        build_files.append(str(out_path))
 
 # copy platform files
 if args.platform != "wii" and patchcreator == False:
