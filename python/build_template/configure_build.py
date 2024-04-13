@@ -16,13 +16,6 @@ ninja = ninja_syntax.Writer(open("build.ninja", "w+"))
 #rb3, dc, blitz - "-v 6"
 ninja.variable("ark_version", "-v 6")
 
-#require user provided vanilla ark extract in "vanilla/platform" folder
-#tbh you should probably just use patchcreator
-vanilla_files = False
-
-#copy back dx files and vanilla hdr to platform folder before building
-rebuild_files = False
-
 #set True for rb1 and newer 
 new_gen = True
 
@@ -63,8 +56,8 @@ custom_texture_paths = [
 #patchcreator options
 patchcreator = False
 new_ark_part = "10"
-#deliver vanilla arks to out folder
-copy_vanilla_arks_to_out = False
+
+#end of options
 
 parser = argparse.ArgumentParser(prog="configure")
 parser.add_argument("platform")
@@ -74,10 +67,16 @@ parser.add_argument(
 
 args = parser.parse_args()
 
+gen_folder = "gen"
+#Wii should always use patchcreator
+if args.platform == "wii":
+    patchcreator = True
+
 #THIS IS TEMPLATE YOU CAN REMOVE IF YOU DONT NEED IT
 if args.platform == "ps2":
     #all milo ps2 games from gh to rb use MAIN_0.ARK
     hdr_name = "MAIN"
+    gen_folder = "GEN"
     if new_gen == False:
         #pre rb2 does not use miloVersion for superfreq image generation on ps2
         miloVersion = " "
@@ -134,28 +133,28 @@ match sys.platform:
 #specify output directories per platform
 match args.platform:
     case "ps3":
-        out_dir = Path("out", args.platform, "USRDIR", "gen")
+        out_dir = Path("out", args.platform, "USRDIR", gen_folder)
     case "xbox":
-        out_dir = Path("out", args.platform, "gen")
+        out_dir = Path("out", args.platform, gen_folder)
     case "wii":
-        out_dir = Path("out", args.platform, "files")
+        out_dir = Path("out", args.platform, "files", gen_folder)
     case "ps2":
-        out_dir = Path("out", args.platform, "GEN")
-
-#patchcreator forces into a gen folder itself it sucks
-if patchcreator == True and args.platform != "wii":
-    out_dir = out_dir.parent
+        out_dir = Path("out", args.platform, gen_folder)
 
 #building an ark
-if args.platform in ["ps3", "xbox", "ps2"] and patchcreator == False:
+if patchcreator == False:
     ninja.rule(
         "ark",
         f"$arkhelper dir2ark -n {hdr_name} $ark_version $ark_encrypt -s 4073741823 --logLevel error {ark_dir} {out_dir}",
         description="Building ark",
     )
+
 #patchcreating an ark
-if args.platform == "wii" or patchcreator == True:
-    #patch creator time! force using main as the root name
+if patchcreator == True:
+    #patch creator time!
+    #patchcreator forces into a gen folder itself it sucks
+    out_dir = out_dir.parent
+    #force using main as the root name
     hdr_name = "main"
     #append platform if this is new style ark
     if new_gen == True:
@@ -164,13 +163,13 @@ if args.platform == "wii" or patchcreator == True:
     exec_path = "README.md"
     match args.platform:
         case "wii":
-            hdr_path = "platform/" + args.platform + "/files/gen/" + hdr_name + ".hdr"
+            hdr_path = "platform/" + args.platform + "/files/" + gen_folder + "/" + hdr_name + ".hdr"
         case "ps2":
-            hdr_path = "platform/" + args.platform + "/GEN/" + hdr_name.upper() + ".HDR"
+            hdr_path = "platform/" + args.platform + "/" + gen_folder + "/" + hdr_name.upper() + ".HDR"
         case "ps3":
-            hdr_path = "platform/" + args.platform + "/USRDIR/gen/" + hdr_name + ".hdr"
+            hdr_path = "platform/" + args.platform + "/USRDIR/" + gen_folder + "/" + hdr_name + ".hdr"
         case "xbox":
-            hdr_path = "platform/" + args.platform + "/gen/" + hdr_name + ".hdr"
+            hdr_path = "platform/" + args.platform + "/" + gen_folder + "/" + hdr_name + ".hdr"
     ninja.rule(
         "ark",
         f"$arkhelper patchcreator -a {ark_dir} -o {out_dir} {hdr_path} {exec_path} --logLevel error",
@@ -190,29 +189,11 @@ ninja.build("_always", "phony")
 build_files = []
 
 # copy whatever arbitrary files you need to output
-if rebuild_files == True:
-    for f in filter(lambda x: x.is_file(), Path("dependencies", "rebuild_files", args.platform).rglob("*")):
-        index = f.parts.index(args.platform)
-        out_path = Path("out", args.platform).joinpath(*f.parts[index + 1 :])
-        ninja.build(str(out_path), "copy", str(f))
-        build_files.append(str(out_path))
-
-if copy_vanilla_arks_to_out == True:
-    #copies each ark part from the platform folder to output
-    #we are about to overwrite the hdr anyway so it doesnt matter if we copy it now
-    for f in filter(lambda x: x.is_file(), Path("platform", args.platform, "gen").rglob("*")):
-        index = f.parts.index(args.platform)
-        out_path = Path("out", args.platform).joinpath(*f.parts[index + 1 :])
-        ninja.build(str(out_path), "copy", str(f))
-        build_files.append(str(out_path))
-
-# copy platform files
-if args.platform != "wii" and patchcreator == False:
-    for f in filter(lambda x: x.is_file(), Path("platform", args.platform).rglob("*")):
-        index = f.parts.index(args.platform)
-        out_path = Path("out", args.platform).joinpath(*f.parts[index + 1 :])
-        ninja.build(str(out_path), "copy", str(f))
-        build_files.append(str(out_path))
+for f in filter(lambda x: x.is_file(), Path("dependencies", "platform_files", args.platform).rglob("*")):
+    index = f.parts.index(args.platform)
+    out_path = Path("out", args.platform).joinpath(*f.parts[index + 1 :])
+    ninja.build(str(out_path), "copy", str(f))
+    build_files.append(str(out_path))
 
 def ark_file_filter(file: Path):
     if file.is_dir():
@@ -243,8 +224,8 @@ for f in filter(ark_file_filter, Path("_ark").rglob("*")):
             )
             match args.platform:
                 case "ps3":
-                    target_filename = Path("gen", f.stem + ".png_ps3")
-                    xbox_filename = Path("gen", f.stem + ".png_xbox")
+                    target_filename = Path(gen_folder, f.stem + ".png_ps3")
+                    xbox_filename = Path(gen_folder, f.stem + ".png_xbox")
                     xbox_directory = Path("obj", args.platform, "raw").joinpath(
                         *f.parent.parts[1:]
                     )
@@ -254,7 +235,7 @@ for f in filter(ark_file_filter, Path("_ark").rglob("*")):
                     ninja.build(str(ps3_output), "bswap", str(xbox_output))
                     ark_files.append(str(ps3_output))
                 case "xbox":
-                    target_filename = Path("gen", f.stem + ".png_xbox")
+                    target_filename = Path(gen_folder, f.stem + ".png_xbox")
                     xbox_directory = Path("obj", args.platform, "ark").joinpath(
                         *f.parent.parts[1:]
                     )
@@ -262,7 +243,7 @@ for f in filter(ark_file_filter, Path("_ark").rglob("*")):
                     ninja.build(str(xbox_output), "sfreq", str(f), variables={"platform": "x360"})
                     ark_files.append(str(xbox_output))
                 case "wii":
-                    target_filename = Path("gen", f.stem + ".png_wii")
+                    target_filename = Path(gen_folder, f.stem + ".png_wii")
                     wii_directory = Path("obj", args.platform, "ark").joinpath(
                         *f.parent.parts[1:]
                     )
@@ -271,7 +252,7 @@ for f in filter(ark_file_filter, Path("_ark").rglob("*")):
                     ark_files.append(str(wii_output))
                 #disabled as we need resizing
                 #case "ps2":
-                #    target_filename = Path("gen", f.stem + ".png_ps2")
+                #    target_filename = Path(gen_folder, f.stem + ".png_ps2")
                 #    ps2_directory = Path("obj", args.platform, "ark").joinpath(
                 #        *f.parent.parts[1:]
                 #    )
@@ -280,8 +261,8 @@ for f in filter(ark_file_filter, Path("_ark").rglob("*")):
                 #    ark_files.append(str(ps2_output))
 
         case [".dta"]:
-            target_filename = Path("gen", f.stem + ".dtb")
-            stamp_filename = Path("gen", f.stem + ".dtb.checked")
+            target_filename = Path(gen_folder, f.stem + ".dtb")
+            stamp_filename = Path(gen_folder, f.stem + ".dtb.checked")
 
             output_directory = Path("obj", args.platform, "ark").joinpath(
                 *f.parent.parts[1:]
@@ -310,8 +291,8 @@ for f in filter(ark_file_filter, Path("_ark").rglob("*")):
 
 # write version info
 dta = Path("obj", args.platform, "raw", "dx", "locale", "dx_version.dta")
-dtb = Path("obj", args.platform, "raw", "dx", "locale", "gen", "dx_version.dtb")
-enc = Path("obj", args.platform, "ark", "dx", "locale", "gen", "dx_version.dtb")
+dtb = Path("obj", args.platform, "raw", "dx", "locale", gen_folder, "dx_version.dtb")
+enc = Path("obj", args.platform, "ark", "dx", "locale", gen_folder, "dx_version.dtb")
 
 ninja.build(str(dta), "version", implicit="_always")
 ninja.build(str(dtb), "dtab_serialize", str(dta))
@@ -319,17 +300,11 @@ ninja.build(str(enc), "dtab_encrypt", str(dtb))
 
 ark_files.append(str(enc))
 
-#THIS IS TEMPLATE YOU CAN REMOVE IF YOU DONT NEED IT
-#copy vanilla files to obj if required
-if vanilla_files == True and patchcreator == False:
-    from vanilla_files import vanilla
-    ark_files, vanilla_files = vanilla(ark_files, args.platform, ninja, Path)
-
 def generate_texture_list(input_path: Path):
     base = input_path.parts[1:]
     dta = Path("obj", args.platform, "raw").joinpath(*base).joinpath("_list.dta")
-    dtb = Path("obj", args.platform, "raw").joinpath(*base).joinpath("gen", "_list.dtb")
-    enc = Path("obj", args.platform, "ark").joinpath(*base).joinpath("gen", "_list.dtb")
+    dtb = Path("obj", args.platform, "raw").joinpath(*base).joinpath(gen_folder, "_list.dtb")
+    enc = Path("obj", args.platform, "ark").joinpath(*base).joinpath(gen_folder, "_list.dtb")
     ninja.build(str(dta), "png_list", variables={"dir": str(input_path)}, implicit="_always")
     ninja.build(str(dtb), "dtab_serialize", str(dta))
     ninja.build(str(enc), "dtab_encrypt", str(dtb))
