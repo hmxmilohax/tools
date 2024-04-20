@@ -1,8 +1,12 @@
+
 [licenses]
-unlicensed = "deny"
-copyleft = "deny"
-allow-osi-fsf-free = "osi"
-default = "deny"
+version = 2
+
+allow = [
+    "Unicode-DFS-2016",
+    "Apache-2.0",
+    "MIT",
+]
 
 [licenses.private]
 ignore = true
