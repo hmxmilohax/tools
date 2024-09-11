@@ -5,7 +5,7 @@ use derive_more::Unwrap;
 use logos::Lexer;
 use logos::Logos;
 
-// do no try and understand the regex in here
+// do not try to understand the regex here
 #[derive(Logos, Debug, PartialEq, IsVariant, Unwrap, Clone)]
 pub enum TokenKind {
     #[token("kDataUnhandled")]
