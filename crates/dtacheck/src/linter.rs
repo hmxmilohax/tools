@@ -1,44 +1,54 @@
 use std::collections::HashMap;
 use std::ops::Range;
 
+use arson::parse::parser as arson_parse;
+use arson_parse::{Expression, ExpressionKind};
 use codespan_reporting::diagnostic::Diagnostic;
 use codespan_reporting::diagnostic::Label;
-
-use crate::lexer::Token;
-use crate::lexer::TokenKind;
-use crate::parser::Node;
-use crate::parser::NodeKind;
 
 pub trait Lint {
     fn to_codespan(&self, id: usize) -> Diagnostic<usize>;
 }
 
-pub fn lint_file(
-    ast: &[Node],
-    tokens: &[Token],
-    funcs: &Function,
-) -> Vec<Box<dyn Lint>> {
+impl<'src> Lint for arson_parse::ParseError<'src> {
+    fn to_codespan(&self, id: usize) -> Diagnostic<usize> {
+        self.to_diagnostic(id)
+    }
+}
+
+pub fn lint_file(ast: &[Expression], funcs: &Function) -> Vec<Box<dyn Lint>> {
     let mut lints = Vec::new();
     lint_node(&mut lints, ast, funcs);
-    lint_preprocs(&mut lints, tokens);
     lints
 }
 
-fn lint_node(lints: &mut Vec<Box<dyn Lint>>, ast: &[Node], funcs: &Function) {
+fn lint_node(
+    lints: &mut Vec<Box<dyn Lint>>,
+    ast: &[Expression],
+    funcs: &Function,
+) {
     for node in ast {
         match &node.kind {
-            NodeKind::Array(array)
-            | NodeKind::Prop(array)
-            | NodeKind::Define(_, array) => lint_node(lints, array, funcs),
-            NodeKind::Stmt(array) => {
+            ExpressionKind::Array(array) | ExpressionKind::Property(array) => {
+                lint_node(lints, &array, funcs)
+            }
+            ExpressionKind::Define(_, array) => {
+                lint_node(lints, &array.exprs, funcs)
+            }
+            ExpressionKind::Command(array) => {
                 lint_node(lints, array, funcs);
 
-                let has_preprocessor_directive =
-                    array.iter().any(Node::is_preproc);
+                let has_preprocessor_directive = array.iter().any(|e| {
+                    matches!(e.kind, ExpressionKind::Conditional { .. })
+                });
 
                 if !has_preprocessor_directive {
-                    lint_fn_args(lints, array, node.span.clone(), funcs);
-                    lint_switch_fallthrough(lints, array, node.span.clone());
+                    lint_fn_args(lints, array, node.location.clone(), funcs);
+                    lint_switch_fallthrough(
+                        lints,
+                        array,
+                        node.location.clone(),
+                    );
                 }
             }
             _ => (),
@@ -89,11 +99,15 @@ impl Default for Function {
 }
 
 impl Function {
-    pub fn lookup(&self, stmt: &[Node]) -> (&Function, usize) {
+    pub fn lookup(&self, stmt: &[Expression]) -> (&Function, usize) {
         self.lookup_inner(stmt, 0)
     }
 
-    fn lookup_inner(&self, stmt: &[Node], depth: usize) -> (&Function, usize) {
+    fn lookup_inner(
+        &self,
+        stmt: &[Expression],
+        depth: usize,
+    ) -> (&Function, usize) {
         if self.children.is_empty() {
             return (self, depth);
         };
@@ -102,7 +116,7 @@ impl Function {
             return (self, depth);
         };
 
-        let NodeKind::Symbol(ref sym) = node.kind else {
+        let ExpressionKind::Symbol(sym) = node.kind else {
             return (self, depth);
         };
 
@@ -132,7 +146,7 @@ impl Function {
 
 fn lint_fn_args(
     lints: &mut Vec<Box<dyn Lint>>,
-    stmt: &[Node],
+    stmt: &[Expression],
     span: Range<usize>,
     funcs: &Function,
 ) {
@@ -145,72 +159,18 @@ fn lint_fn_args(
     }
 }
 
-fn generate_function_name(stmt: &[Node]) -> String {
+fn generate_function_name(stmt: &[Expression]) -> String {
     let list: Vec<&str> = stmt
         .iter()
-        .map(|x| match &x.kind {
-            NodeKind::Symbol(sym) => Some(sym),
+        .map(|x| match x.kind {
+            ExpressionKind::Symbol(sym) => Some(sym),
             _ => None,
         })
         .take_while(Option::is_some)
-        .map(|x| x.unwrap().as_str())
+        .map(|x| x.unwrap())
         .collect();
 
     list.join(" ")
-}
-
-// preprocesor directives
-enum PreProcLint {
-    Unmatched(Range<usize>),
-    Extra(Range<usize>),
-}
-
-impl Lint for PreProcLint {
-    fn to_codespan(&self, id: usize) -> Diagnostic<usize> {
-        match self {
-            Self::Unmatched(s) => Diagnostic::error()
-                .with_message("unmatched preprocessing directive")
-                .with_labels(vec![Label::primary(id, s.clone())]),
-            Self::Extra(s) => Diagnostic::error()
-                .with_message("extraneous preprocessing directive")
-                .with_labels(vec![Label::primary(id, s.clone())]),
-        }
-    }
-}
-
-fn lint_preprocs(lints: &mut Vec<Box<dyn Lint>>, tokens: &[Token]) {
-    let mut directive_stack: Vec<(Range<usize>, bool)> = Vec::new();
-    for token in tokens {
-        match token.kind {
-            TokenKind::IfNDef | TokenKind::IfDef => {
-                directive_stack.push((token.span.clone(), false));
-            }
-            TokenKind::Else => {
-                if let Some(entry) = directive_stack.pop() {
-                    if entry.1 {
-                        lints.push(Box::new(PreProcLint::Extra(
-                            token.span.clone(),
-                        )));
-                    }
-                    directive_stack.push((token.span.clone(), true));
-                } else {
-                    lints
-                        .push(Box::new(PreProcLint::Extra(token.span.clone())));
-                }
-            }
-            TokenKind::EndIf => {
-                if directive_stack.pop().is_none() {
-                    lints
-                        .push(Box::new(PreProcLint::Extra(token.span.clone())));
-                }
-            }
-            _ => (),
-        }
-    }
-
-    for lint in directive_stack {
-        lints.push(Box::new(PreProcLint::Unmatched(lint.0)));
-    }
 }
 
 // switch fallthough
@@ -231,14 +191,14 @@ impl Lint for SwitchFallthroughLint {
 
 fn lint_switch_fallthrough(
     lints: &mut Vec<Box<dyn Lint>>,
-    stmt: &[Node],
+    stmt: &[Expression],
     span: Range<usize>,
 ) {
     if stmt.is_empty() {
         return;
     }
 
-    let NodeKind::Symbol(ref sym) = stmt[0].kind else {
+    let ExpressionKind::Symbol(sym) = stmt[0].kind else {
         return;
     };
 
@@ -250,7 +210,7 @@ fn lint_switch_fallthrough(
         return;
     };
 
-    if last_node.kind.is_array() {
+    if matches!(last_node.kind, ExpressionKind::Array(_)) {
         let pos = span.end - 1;
         lints.push(Box::new(SwitchFallthroughLint(span, pos..pos)))
     }

@@ -2,17 +2,17 @@ use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 
+use arson::parse::lexer;
+use arson::parse::parser;
 use clap::Parser as ClapParser;
 use codespan_reporting::files::SimpleFiles;
 use codespan_reporting::term;
 use codespan_reporting::term::termcolor::ColorChoice;
 use codespan_reporting::term::termcolor::StandardStream;
 use codespan_reporting::term::Chars;
-use dtacheck::lexer;
 use dtacheck::linter::lint_file;
 use dtacheck::linter::Function;
 use dtacheck::linter::Lint;
-use dtacheck::parser;
 
 #[derive(ClapParser)]
 struct Args {
@@ -54,7 +54,10 @@ fn main() {
     let file_id = files.add(args.file.to_str().unwrap(), &data);
 
     let tokens = lexer::lex(&data);
-    let (ast, diagnostics) = parser::parse(&tokens);
+    let (ast, diagnostics) = match parser::parse(tokens) {
+        Ok(ast) => (ast, Vec::new()),
+        Err(errors) => (Vec::new(), errors),
+    };
 
     let writer = StandardStream::stderr(ColorChoice::Auto);
     let config = codespan_reporting::term::Config {
@@ -71,9 +74,7 @@ fn main() {
         );
     }
 
-    let Ok(ast) = ast else { return };
-
-    for diag in lint_file(&ast, &tokens, &funcs) {
+    for diag in lint_file(&ast, &funcs) {
         let _ = term::emit(
             &mut writer.lock(),
             &config,
