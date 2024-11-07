@@ -44,11 +44,13 @@ fn lint_node(
 
                 if !has_preprocessor_directive {
                     lint_fn_args(lints, array, node.location.clone(), funcs);
+                    /*
                     lint_switch_fallthrough(
                         lints,
                         array,
                         node.location.clone(),
                     );
+                    */
                 }
             }
             _ => (),
