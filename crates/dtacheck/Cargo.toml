@@ -7,6 +7,10 @@ publish = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-arson = { git = "https://github.com/hmxmilohax/arson", version = "0.1.0", rev = "c0c102c86f3734d41623b2fd4bfc78bf74302500" }
 clap = { version = "4.4.12", features = ["derive"] }
-codespan-reporting = "0.11.1"
+
+[dependencies.arson-parse]
+version = "0.1.0"
+git = "https://github.com/hmxmilohax/arson"
+rev = "7b65f20fc2f409d1bfedb4b0bdfbe581c8e6e969"
+features = ["reporting"]

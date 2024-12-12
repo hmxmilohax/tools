@@ -2,8 +2,7 @@ use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 
-use arson::parse::lexer;
-use arson::parse::parser;
+use arson_parse::reporting as codespan_reporting;
 use clap::Parser as ClapParser;
 use codespan_reporting::files::SimpleFiles;
 use codespan_reporting::term;
@@ -12,7 +11,6 @@ use codespan_reporting::term::termcolor::StandardStream;
 use codespan_reporting::term::Chars;
 use dtacheck::linter::lint_file;
 use dtacheck::linter::Function;
-use dtacheck::linter::Lint;
 
 #[derive(ClapParser)]
 struct Args {
@@ -53,8 +51,7 @@ fn main() {
     let mut files = SimpleFiles::new();
     let file_id = files.add(args.file.to_str().unwrap(), &data);
 
-    let tokens = lexer::lex(&data);
-    let (ast, diagnostics) = match parser::parse(tokens) {
+    let (ast, diagnostics) = match arson_parse::parse_text(&data) {
         Ok(ast) => (ast, Vec::new()),
         Err(errors) => (Vec::new(), errors),
     };

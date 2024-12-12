@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 use std::ops::Range;
 
-use arson::parse::parser as arson_parse;
-use arson_parse::{Expression, ExpressionKind};
+use arson_parse::reporting as codespan_reporting;
+use arson_parse::Expression;
+use arson_parse::ExpressionValue;
 use codespan_reporting::diagnostic::Diagnostic;
 use codespan_reporting::diagnostic::Label;
 
@@ -10,9 +11,9 @@ pub trait Lint {
     fn to_codespan(&self, id: usize) -> Diagnostic<usize>;
 }
 
-impl<'src> Lint for arson_parse::ParseError<'src> {
+impl<'src> Lint for arson_parse::Diagnostic {
     fn to_codespan(&self, id: usize) -> Diagnostic<usize> {
-        self.to_diagnostic(id)
+        self.to_codespan(id)
     }
 }
 
@@ -28,18 +29,19 @@ fn lint_node(
     funcs: &Function,
 ) {
     for node in ast {
-        match &node.kind {
-            ExpressionKind::Array(array) | ExpressionKind::Property(array) => {
+        match &node.value {
+            ExpressionValue::Array(array)
+            | ExpressionValue::Property(array) => {
                 lint_node(lints, &array, funcs)
             }
-            ExpressionKind::Define(_, array) => {
+            ExpressionValue::Define(_, array) => {
                 lint_node(lints, &array.exprs, funcs)
             }
-            ExpressionKind::Command(array) => {
+            ExpressionValue::Command(array) => {
                 lint_node(lints, array, funcs);
 
                 let has_preprocessor_directive = array.iter().any(|e| {
-                    matches!(e.kind, ExpressionKind::Conditional { .. })
+                    matches!(e.value, ExpressionValue::Conditional { .. })
                 });
 
                 if !has_preprocessor_directive {
@@ -118,7 +120,7 @@ impl Function {
             return (self, depth);
         };
 
-        let ExpressionKind::Symbol(sym) = node.kind else {
+        let ExpressionValue::Symbol(sym) = node.value else {
             return (self, depth);
         };
 
@@ -164,8 +166,8 @@ fn lint_fn_args(
 fn generate_function_name(stmt: &[Expression]) -> String {
     let list: Vec<&str> = stmt
         .iter()
-        .map(|x| match x.kind {
-            ExpressionKind::Symbol(sym) => Some(sym),
+        .map(|x| match x.value {
+            ExpressionValue::Symbol(sym) => Some(sym),
             _ => None,
         })
         .take_while(Option::is_some)
@@ -200,7 +202,7 @@ fn lint_switch_fallthrough(
         return;
     }
 
-    let ExpressionKind::Symbol(sym) = stmt[0].kind else {
+    let ExpressionValue::Symbol(sym) = stmt[0].value else {
         return;
     };
 
@@ -212,7 +214,7 @@ fn lint_switch_fallthrough(
         return;
     };
 
-    if matches!(last_node.kind, ExpressionKind::Array(_)) {
+    if matches!(last_node.value, ExpressionValue::Array(_)) {
         let pos = span.end - 1;
         lints.push(Box::new(SwitchFallthroughLint(span, pos..pos)))
     }
