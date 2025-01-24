@@ -10,7 +10,7 @@ publish = false
 clap = { version = "4.4.12", features = ["derive"] }
 
 [dependencies.arson-parse]
-version = "0.1.0"
+version = "0.2.0"
 git = "https://github.com/hmxmilohax/arson"
-rev = "7b65f20fc2f409d1bfedb4b0bdfbe581c8e6e969"
+tag = "v0.2.0"
 features = ["reporting"]

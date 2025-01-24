@@ -53,7 +53,7 @@ fn main() {
 
     let (ast, diagnostics) = match arson_parse::parse_text(&data) {
         Ok(ast) => (ast, Vec::new()),
-        Err(errors) => (Vec::new(), errors),
+        Err(error) => (Vec::new(), error.diagnostics),
     };
 
     let writer = StandardStream::stderr(ColorChoice::Auto);
