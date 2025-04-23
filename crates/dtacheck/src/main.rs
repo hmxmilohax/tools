@@ -3,6 +3,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use arson_parse::reporting as codespan_reporting;
+use arson_parse::ParseOptions;
 use clap::Parser as ClapParser;
 use codespan_reporting::files::SimpleFiles;
 use codespan_reporting::term;
@@ -51,7 +52,10 @@ fn main() {
     let mut files = SimpleFiles::new();
     let file_id = files.add(args.file.to_str().unwrap(), &data);
 
-    let (ast, diagnostics) = match arson_parse::parse_text(&data) {
+    let parse_options = ParseOptions {
+        include_comments: false,
+    };
+    let (ast, diagnostics) = match arson_parse::parse_text(&data, parse_options) {
         Ok(ast) => (ast, Vec::new()),
         Err(error) => (Vec::new(), error.diagnostics),
     };

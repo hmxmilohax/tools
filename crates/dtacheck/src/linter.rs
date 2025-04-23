@@ -120,11 +120,11 @@ impl Function {
             return (self, depth);
         };
 
-        let ExpressionValue::Symbol(sym) = node.value else {
+        let ExpressionValue::Symbol(ref sym) = node.value else {
             return (self, depth);
         };
 
-        let Some(func) = self.children.get(sym) else {
+        let Some(func) = self.children.get(sym.as_ref()) else {
             return (self, depth);
         };
 
@@ -166,12 +166,10 @@ fn lint_fn_args(
 fn generate_function_name(stmt: &[Expression]) -> String {
     let list: Vec<&str> = stmt
         .iter()
-        .map(|x| match x.value {
-            ExpressionValue::Symbol(sym) => Some(sym),
+        .map_while(|x| match x.value {
+            ExpressionValue::Symbol(ref sym) => Some(sym.as_ref()),
             _ => None,
         })
-        .take_while(Option::is_some)
-        .map(|x| x.unwrap())
         .collect();
 
     list.join(" ")
@@ -202,7 +200,7 @@ fn lint_switch_fallthrough(
         return;
     }
 
-    let ExpressionValue::Symbol(sym) = stmt[0].value else {
+    let ExpressionValue::Symbol(ref sym) = stmt[0].value else {
         return;
     };
 
