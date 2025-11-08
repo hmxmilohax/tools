@@ -1,1 +1,1 @@
-https://git.halcyoncollective.dev/dark/dta.vim
+https://git.sqrk.dev/dark/dta.vim
